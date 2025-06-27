@@ -1,5 +1,5 @@
 const jwt = require ('jsonwebtoken')
-const { apiKeys } = require('./data.js')
+const { users, apiKeys } = require('./data.js')  
 
 function generateJWT(user){
     return jwt.sign({userId: user.id}, 'secret', {expiresIn: '2h'})
@@ -27,9 +27,19 @@ function generateApiKey(userId, permissions) {
     return apiKey
 }
 
+function authenticateUser(username, password) {
+    const user = users.find(user => user.username === username && user.password === password);
+    if (user) {
+        return user;
+    }
+    return null;
+}
+
+
 module.exports = {
     generateJWT,
     verifyJWT,
-    generateApiKey
+    generateApiKey,
+    authenticateUser
 }
 

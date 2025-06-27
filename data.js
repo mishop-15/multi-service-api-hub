@@ -3,6 +3,11 @@ let products = [];
 let orders = [];
 let apiKeys = [];
 let metrics = {};
+let events = []
+
+
+let orderIdCounter = 1;
+
 
 function getAllUsers(){
     return users;
@@ -10,9 +15,9 @@ function getAllUsers(){
 
 function createUser(userData) {
     const newUser = {
-        id: userData.length+1,
-        username: userData.name,
-        password: userData.password,
+        id: users.length+1,
+        username: users.name,
+        password: users.password,
         createdAt: Date.now()
     }
     users.push(newUser)
@@ -60,8 +65,8 @@ function createOrder(orderData) {
     return newOrder
 }
 
-function getUserApiKeys(id){
-    return users.find(u=> u.id === users.id)
+function getUserApiKeys(userId){
+    return apiKeys.filter(key => key.userId === userId)
 }
 
 function revokeApiKey(keyId, userId) {
@@ -118,20 +123,36 @@ function updateProduct(id, updates){
     return findProduct
 }
 
+function getUserOrders(userId){
+    return orders.filter(order=> order.userId===parseInt(userId))
+}
 
+function getOrderById(id, userId){
+    return orders.find(order => order.id === parseInt(id) && order.userId === parseInt(userId))
+}
+
+function updateOrderStatus(id, status){
+    const order = orders.find(order=>order.id===parseInt(id))
+    if(!order){
+        return null
+    }
+    order.status = status
+    return order;
+}
+
+function deleteProduct(id){
+    const deleteIndex = orders.findIndex(product => product.id === id)
+    if(!deleteIndex){
+        return false
+    }
+    orders.splice(deleteIndex, 1)
+    return true
+}
 
 module.exports = {
-    users, products, orders, apiKeys, metrics,
-
-    getAllUsers, createUser, getUserById,
-
-    getAllOrders, createOrder,
-
-    getAllProducts, createProduct, 
-
-    getUserApiKeys, revokeApiKey, 
-
-    updateUser, getProductById, updateProduct, 
-
-    deleteUser
+    users, products, orders, apiKeys, metrics, events,
+    getAllUsers, createUser, getUserById, updateUser, deleteUser,
+    getAllProducts, createProduct, getProductById, updateProduct, deleteProduct,
+    getAllOrders, createOrder, getUserOrders, getOrderById, updateOrderStatus,
+    getUserApiKeys, revokeApiKey
 }

@@ -26,6 +26,7 @@ function authenticateApiKey(req, res, next) {
     }
     
     req.apiKey = key;
+    req.user = { userId: key.userId };
     next();
 }
 
