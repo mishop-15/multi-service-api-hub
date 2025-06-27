@@ -1,6 +1,6 @@
 const express = require('express');
 const { setupCORS } = require('./middleware.js');
-const routes = require('./routes.js');
+const router = require('./routes.js');
 
 const app = express();
 
@@ -9,7 +9,7 @@ app.use(express.json());
 app.use(setupCORS);
 
 // Routes
-app.use('/', routes);
+app.use('/', router);
 
 // Health check
 app.get('/health', (req, res) => {

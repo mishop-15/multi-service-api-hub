@@ -21,7 +21,7 @@ function createUser(userData) {
 }
 
 function getUserById(id){
-    const findUser = users.find(u=> u.id === users.id)
+    const findUser = users.find(u=> u.id === parseInt(id))
     return findUser
 }
 
@@ -77,6 +77,49 @@ function revokeApiKey(keyId, userId) {
     return true; 
 }
 
+function updateUser(id, updates) {
+    const userIndex = users.findIndex(u => u.id === parseInt(id)); 
+    if (userIndex === -1) {
+        return null;
+    }
+    const oldInfo = users[userIndex];
+    if (updates.name !== undefined) oldInfo.name = updates.name;
+    if (updates.email !== undefined) oldInfo.email = updates.email;
+    if (updates.phone !== undefined) oldInfo.phone = updates.phone;
+    if (updates.bio !== undefined) oldInfo.bio = updates.bio;
+    oldInfo.updatedAt = new Date().toISOString();
+    
+    return oldInfo;
+}
+
+function getProductById(id){
+    const findProduct = products.find(p => p.id === parseInt(id))
+    return findProduct
+}
+
+function deleteUser(id){
+    const userIndex = users.findIndex(u=> u.id === parseInt(id))
+    if(userIndex === -1) {
+        return false
+    }
+    users.splice(userIndex, 1)
+    return true
+}
+
+function updateProduct(id, updates){
+    const findProduct = products.find(p=> p.id === parseInt(id))
+    if(!findProduct){
+        return null
+    }
+    if(updates.name!== undefined){findProduct.name = updates.name}
+    if(updates.price!== undefined){findProduct.price = updates.price}
+    findProduct.updatedAt = new Date().toISOString()
+
+    return findProduct
+}
+
+
+
 module.exports = {
     users, products, orders, apiKeys, metrics,
 
@@ -86,5 +129,9 @@ module.exports = {
 
     getAllProducts, createProduct, 
 
-    getUserApiKeys, revokeApiKey
+    getUserApiKeys, revokeApiKey, 
+
+    updateUser, getProductById, updateProduct, 
+
+    deleteUser
 }
