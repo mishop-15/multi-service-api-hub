@@ -10,8 +10,54 @@ const {
 } = require('./data.js');
 
 const { generateJWT, generateApiKey, authenticateUser } = require('./auth.js');
-const { authenticateJWT, authenticateApiKey } = require('./middleware.js');
+const { authenticateJWT, authenticateApiKey, transformRequest, cacheMiddleware, cacheInvalidationMiddleware } = require('./middleware.js');
 
+// Apply middlewares in correct order
+router.use(transformRequest);
+router.use(cacheMiddleware);
+// Apply cache invalidation only to POST/PUT/DELETE routes
+router.use(['POST', 'PUT', 'DELETE'], cacheInvalidationMiddleware);
+
+const cache = new Map();
+const CACHE_TTL = {
+    users: 5 * 60 * 1000,      
+    products: 10 * 60 * 1000,     
+    analytics: 1 * 60 * 1000    
+};
+
+function getCacheKey(method, url, querystring = '', userId = null){
+    return `${method}:${url}:${querystring}${userId ? ':' + userId : ''}`
+}
+
+function getFromCache(key){
+    const cached = cache.get(key);
+    if(!cached) return null;
+    
+    // FIX: Changed Date.now() > CACHE_TTL to Date.now() > cached.expiresAt
+    if(Date.now() > cached.expiresAt){
+        cache.delete(key)
+        return null
+    }
+    return cached.data
+}
+
+function saveToCache(key, data, ttl){
+    cache.set(key, {
+        data: data,
+        expiresAt: Date.now() + ttl,
+        createdAt: Date.now()
+    })
+}
+
+function clearCachePattern(pattern) {
+    for (let key of cache.keys()) {
+        if (key.includes(pattern)) {
+            cache.delete(key);
+        }
+    }
+}
+
+// AUTH ROUTES
 router.post('/auth/login', (req, res) => {
     const { username, password } = req.body;
     const result = authenticateUser(username, password);
@@ -45,6 +91,7 @@ router.delete('/auth/api-key/:id', authenticateJWT, (req, res) => {
     res.json({ success: true });
 });
 
+// USER ROUTES
 router.get('/api/v1/users', authenticateJWT, (req, res) => {
     const users = getAllUsers();
     res.json({ users });
@@ -79,6 +126,7 @@ router.delete('/api/v1/users/:id', authenticateJWT, (req, res) => {
     res.json({ success: true });
 });
 
+// PRODUCT ROUTES
 router.get('/api/v1/products', (req, res) => {
     const products = getAllProducts();
     res.json({ products });
@@ -113,6 +161,7 @@ router.delete('/api/v1/products/:id', authenticateApiKey, (req, res) => {
     res.json({ success: true });
 });
 
+// ORDER ROUTES
 router.get('/api/v1/orders', authenticateJWT, (req, res) => {
     const userOrders = getUserOrders(req.user.userId);
     res.json({ orders: userOrders });
@@ -140,7 +189,8 @@ router.put('/api/v1/orders/:id/status', authenticateJWT, (req, res) => {
     res.json({ order: updatedOrder });
 });
 
-router.get('/api/v1/analytics/dashboard', authenticateJWT, (req,res) =>{
+// ANALYTICS ROUTES
+router.get('/api/v1/analytics/dashboard', authenticateJWT, (req, res) => {
     const totalUsers = getAllUsers().length
     const totalProducts = getAllProducts().length
     const totalOrders = getAllOrders().length
@@ -153,7 +203,7 @@ router.get('/api/v1/analytics/dashboard', authenticateJWT, (req,res) =>{
     })
 });
 
-router.post('/api/v1/analytics/events', authenticateJWT, (req,res)=>{
+router.post('/api/v1/analytics/events', authenticateJWT, (req, res) => {
     const eventData = {
         id: Date.now(),
         userId: req.user.userId,
@@ -166,7 +216,8 @@ router.post('/api/v1/analytics/events', authenticateJWT, (req,res)=>{
     res.status(201).json({ message: 'Event tracked', event: eventData });
 });
 
-router.get('/health', (req,res) => { 
+// HEALTH & SYSTEM ROUTES
+router.get('/health', (req, res) => { 
     const overallHealth = {
         status: 'healthy',
         services: {
@@ -181,7 +232,7 @@ router.get('/health', (req,res) => {
     return res.status(200).json(overallHealth);
 });
 
-router.get('/health/:service', authenticateJWT, (req,res)=>{
+router.get('/health/:service', authenticateJWT, (req, res) => {
     const service = req.params.service;
     const validServices = ['users', 'products', 'orders', 'analytics'];
     if (!validServices.includes(service)) {
@@ -196,7 +247,7 @@ router.get('/health/:service', authenticateJWT, (req,res)=>{
     res.json(serviceHealth);
 });
 
-router.get('/metrics', authenticateJWT, (req,res)=> {
+router.get('/metrics', authenticateJWT, (req, res) => {
     if (req.user.role !== 'admin') {
         return res.status(403).json({ error: 'Admin access required' });
     }
@@ -210,7 +261,29 @@ router.get('/metrics', authenticateJWT, (req,res)=> {
         timestamp: Date.now()
     };
     return res.status(200).json({ metrics: systemMetrics });
-})
+});
+
+// CACHE STATS ROUTE (for debugging)
+router.get('/cache-stats', authenticateJWT, (req, res) => {
+    const stats = {
+        totalEntries: cache.size,
+        entries: []
+    };
+    
+    for (let [key, value] of cache.entries()) {
+        const timeLeft = Math.max(0, value.expiresAt - Date.now());
+        stats.entries.push({
+            key: key,
+            timeLeft: Math.round(timeLeft / 1000) + 's',
+            createdAt: new Date(value.createdAt).toISOString(),
+            isExpired: timeLeft === 0
+        });
+    }
+    
+    res.json(stats);
+});
 
 
-module.exports = {router};
+
+
+module.exports = {router, CACHE_TTL, getCacheKey, getFromCache, saveToCache, clearCachePattern};
