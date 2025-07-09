@@ -1,5 +1,5 @@
 const express = require('express');
-const { setupCORS } = require('./middleware.js');
+const {setupCORS} = require('./middleware.js');
 const router = require('./routes.js');
 
 const app = express();

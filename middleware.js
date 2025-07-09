@@ -1,6 +1,44 @@
 const { verifyJWT } = require('./auth.js');
 const { apiKeys } = require('./data.js');
-const {CACHE_TTL, getCacheKey, getFromCache, saveToCache, clearCachePattern} = require('./routes.js')
+// const {getCacheKey, getFromCache, saveToCache, clearCachePattern} = require('./routes.js')
+
+const cache = new Map();
+
+const CACHE_TTL = {
+    users: 5 * 60 * 1000,
+    products: 10 * 60 * 1000,
+    analytics: 1 * 60 * 1000
+};
+
+function getCacheKey(method, url, querystring = '', userId = null) {
+    return `${method}:${url}:${querystring}${userId ? ':' + userId : ''}`;
+}
+
+function getFromCache(key) {
+    const entry = cache.get(key);
+    if (!entry) return null;
+    if (Date.now() > entry.expiresAt) {
+        cache.delete(key);
+        return null;
+    }
+    return entry.data;
+}
+
+function saveToCache(key, data, ttl) {
+    cache.set(key, {
+        data,
+        createdAt: Date.now(),
+        expiresAt: Date.now() + ttl
+    });
+}
+
+function clearCachePattern(pattern) {
+    for (const key of cache.keys()) {
+        if (key.includes(pattern)) {
+            cache.delete(key);
+        }
+    }
+}
 
 function authenticateJWT(req, res, next) {
     const token = req.header('Authorization')?.replace('Bearer ', '')
@@ -124,8 +162,14 @@ function setupCORS(req, res, next){
 module.exports = {
     authenticateJWT,
     authenticateApiKey,
-    setupCORS, 
-    transformRequest, 
+    setupCORS,
+    transformRequest,
     cacheMiddleware,
-    cacheInvalidationMiddleware  
-}
+    cacheInvalidationMiddleware,
+    CACHE_TTL,
+    getCacheKey,
+    getFromCache,
+    saveToCache,
+    clearCachePattern,
+    cache
+};
